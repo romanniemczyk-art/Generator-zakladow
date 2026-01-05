@@ -166,7 +166,7 @@ max_block_length = st.number_input(
 )
 
 max_blocks = st.number_input(
-    T("🧱 Maksymalna liczba bloków", "🧱 Maximum number of blocks"),
+    T("🧊 Maksymalna liczba bloków", "🧊 Maximum number of blocks"),
     0, 200, 1,
     help=T(
         "Maksymalna liczba oddzielnych ciągów kolejnych liczb, które mogą pojawić się na kuponie.",
@@ -175,6 +175,7 @@ max_blocks = st.number_input(
 )
 
 st.markdown("---")
+
 
 # ============================================================
 #  SILNIK
@@ -365,6 +366,5 @@ st.markdown(
     "</div>",
     unsafe_allow_html=True
 )
-
 
 st.markdown(footer_pl if st.session_state.lang == "PL" else footer_en, unsafe_allow_html=True)
