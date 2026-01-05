@@ -91,28 +91,37 @@ with col1:
     k = st.number_input(
         T("🔢 Ile liczb w zakładzie (k)", "🔢 Numbers per ticket (k)"),
         1, 200, 1,
-        help=T("Ile liczb zawiera zakład.", "How many numbers each ticket contains.")
+        help=T(
+            "Liczba liczb, które mają znaleźć się na jednym kuponie (np. 6 w Lotto).",
+            "Number of numbers placed on a single ticket (e.g., 6 in classic lotto)."
+        )
     )
 with col2:
     n = st.number_input(
         T("🎲 Z ilu liczb losujemy (n)", "🎲 Range of numbers (n)"),
         1, 200, 1,
-        help=T("Zakres liczb 1..n.", "Numbers are drawn from 1..n.")
+        help=T(
+            "Zakres liczb, z którego wybierane są liczby do kuponów (1 do n).",
+            "Range of numbers from which tickets are generated (1 to n)."
+        )
     )
 
 strength = st.slider(
     T("💪 Siła zakresów (%)", "💪 Range strength (%)"),
     0, 100, 1,
     help=T(
-    "Ustala, jak bardzo dane statystyczne wpływają na dobór liczb.",
-    "Sets how much statistical data influences number selection."
+        "Określa, jak mocno generator ma kierować się statystyką zamiast czystej losowości.",
+        "Controls how strongly the generator relies on statistical patterns instead of pure randomness."
     )
 )
 
 num_tickets = st.number_input(
     T("📄 Ile zakładów wygenerować", "📄 Number of tickets"),
     1, 1000, 1,
-    help=T("Demo ogranicza do 6 zakładów.", "Demo limits to 6 tickets.")
+    help=T(
+        "Liczba kuponów, które mają zostać wygenerowane w jednym przebiegu. Demo ogranicza do 6 zakładów.",
+        "Number of tickets to generate in a single run. Demo limits to 6 tickets."
+    )
 )
 
 if num_tickets > 6:
@@ -128,28 +137,41 @@ st.markdown("---")
 st.header(T("🧩 Filtry", "🧩 Filters"))
 
 max_common = st.number_input(
-    T("🔁 Wspólne liczby", "🔁 Common numbers limit"),
+    T("🔁 Maksymalna liczba wspólnych liczb na kuponach",
+      "🔁 Maximum shared numbers across tickets"),
     0, 200, 1,
-    help=T("Maksymalna liczba wspólnych liczb.", "Maximum shared numbers.")
+    help=T(
+        "Ile liczb może powtarzać się pomiędzy wygenerowanymi kuponami.",
+        "How many numbers may repeat across generated tickets."
+    )
 )
 
 eliminate_even_odd = st.checkbox(
     T("⚖️ Eliminacja samych parzystych/nieparzystych",
       "⚖️ Eliminate all-even or all-odd tickets"),
     value=False,
-    help=T("Odrzuca zakłady 100% parzyste lub nieparzyste.", "Rejects all-even or all-odd tickets.")
+    help=T(
+        "Usuwa kupony składające się wyłącznie z liczb parzystych lub wyłącznie nieparzystych.",
+        "Removes tickets containing only even or only odd numbers."
+    )
 )
 
 max_block_length = st.number_input(
     T("📏 Maksymalna długość bloku", "📏 Max block length"),
     0, 200, 1,
-    help=T("Najdłuższy dopuszczalny blok kolejnych liczb.", "Longest allowed consecutive block.")
+    help=T(
+        "Najdłuższy dopuszczalny ciąg kolejnych liczb (np. 3 oznacza, że 4 kolejne liczby są niedozwolone).",
+        "Longest allowed sequence of consecutive numbers (e.g., 3 means 4 in a row is not allowed)."
+    )
 )
 
 max_blocks = st.number_input(
     T("🧱 Maksymalna liczba bloków", "🧱 Maximum number of blocks"),
     0, 200, 1,
-    help=T("Maksymalna liczba bloków kolejnych liczb.", "Maximum number of consecutive blocks.")
+    help=T(
+        "Maksymalna liczba oddzielnych ciągów kolejnych liczb, które mogą pojawić się na kuponie.",
+        "Maximum number of separate consecutive-number blocks allowed on a ticket."
+    )
 )
 
 st.markdown("---")
@@ -343,5 +365,6 @@ st.markdown(
     "</div>",
     unsafe_allow_html=True
 )
+
 
 st.markdown(footer_pl if st.session_state.lang == "PL" else footer_en, unsafe_allow_html=True)
