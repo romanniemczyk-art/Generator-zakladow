@@ -2,6 +2,14 @@ import streamlit as st
 import random
 import base64
 
+st.markdown(
+    "<div style='text-align:right; font-size:14px;'>"
+    "<a href='https://docs.google.com/forms/d/e/1FAIpQLSdo4SL6jAET9i1-YWkYX3fdDcWF5LnTtrp-76ioLxSkaiQejA/viewform' style='color:#00ffcc;'>Wypełnij ankietę</a>"
+    "</div>",
+    unsafe_allow_html=True
+)
+
+
 SIMULATIONS = 5000
 
 # ============================================================
@@ -379,3 +387,4 @@ st.markdown(
 )
 
 st.markdown(footer_pl if st.session_state.lang == "PL" else footer_en, unsafe_allow_html=True)
+
