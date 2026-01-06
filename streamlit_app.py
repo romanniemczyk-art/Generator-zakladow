@@ -46,16 +46,12 @@ hr { border: none; border-top: 2px solid #00ffcc !important; margin: 20px 0; }
 """, unsafe_allow_html=True)
 
 # ============================================================
-#  TYTUŁ + JĘZYK
+#  JĘZYK NAD TYTUŁEM (PO PRAWEJ)
 # ============================================================
 
-title_col, lang_col = st.columns([6, 2])
-
-with title_col:
-    st.title(T("🎛️ Generator Zakładów", "🎛️ Ticket Generator"))
-
+_, lang_col = st.columns([6, 2])
 with lang_col:
-    b1, b2 = st.columns(2)
+    b1, b2 = st.columns([1, 1])
     with b1:
         if st.button("PL", key="lang_pl_btn"):
             st.session_state.lang = "PL"
@@ -63,20 +59,13 @@ with lang_col:
         if st.button("EN", key="lang_en_btn"):
             st.session_state.lang = "EN"
 
-# Ostrzeżenie
-st.markdown(f"""
-<span style="font-weight:600; color:#d32f2f; font-size:16px;">
-    {T("Ostrzeżenie!", "Warning!")}
-</span>
-<span 
-    title="{T(
-        'Generator ma charakter demonstracyjny. Wyniki nie stanowią prognozy ani rekomendacji.',
-        'This generator is a demonstration tool. Results do not represent predictions or recommendations.'
-    )}"
-    style="cursor: help; font-size:18px; color:#ff9800; margin-left:6px;">
-    ❗
-</span>
-""", unsafe_allow_html=True)
+# ============================================================
+#  TYTUŁ
+# ============================================================
+
+title_col, _ = st.columns([6, 2])
+with title_col:
+    st.title(T("🎛️ Generator liczb", "🎛️ Number Generator"))
 
 # ============================================================
 #  PARAMETRY GRY
@@ -146,13 +135,14 @@ max_common = st.number_input(
     )
 )
 
-eliminate_even_odd = st.checkbox(
+# DUŻY, MOBILNY PRZEŁĄCZNIK ZAMIAST CHECKBOXA
+eliminate_even_odd = st.toggle(
     T("⚖️ Eliminacja samych parzystych/nieparzystych",
       "⚖️ Eliminate all-even or all-odd tickets"),
     value=False,
     help=T(
         "Usuwa kupony składające się wyłącznie z liczb parzystych lub wyłącznie nieparzystych.",
-        "Removes tickets containing only even or only odd numbers."
+        "Removes tickets containing only even or odd numbers."
     )
 )
 
@@ -278,7 +268,7 @@ def generate_single_ticket(ranges, k, tickets_so_far, max_common, eliminate_even
 if "results" not in st.session_state:
     st.session_state.results = None
 
-if st.button(T("🚀 Generuj zakłady", "🚀 Generate tickets")):
+if st.button(T("🚀 Generuj", "🚀 Generate")):
     if k > n:
         st.error(T("Błąd: k > n.", "Error: k > n."))
     else:
@@ -333,6 +323,27 @@ if st.session_state.results:
         with col_txt:
             if st.button(T("📄 Zapisz TXT", "📄 Save TXT"), use_container_width=True):
                 st.error(T("Tylko w pełnej wersji.", "Full version only."))
+
+
+
+# OSTRZEŻENIE – stałe, nad stopką (PL + EN)
+st.markdown(f"""
+<div style="
+    background-color:#ffcc80;
+    padding:14px 18px;
+    border-radius:6px;
+    font-size:16px;
+    font-weight:500;
+    color:#000;
+    margin-top:20px;
+">
+    {T(
+        "Generator ma charakter demonstracyjny – nie stanowi rekomendacji ani prognozy wyników.",
+        "This generator is for informational purposes only – it does not constitute advice or prediction."
+    )}
+</div>
+""", unsafe_allow_html=True)
+
 
 # ============================================================
 #  STOPKA
