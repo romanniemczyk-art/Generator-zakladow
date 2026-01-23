@@ -97,7 +97,7 @@ hr {
 title_col, lang_col = st.columns([6, 2])
 
 with title_col:
-    st.title(T("🎛️ Generator Liczb", "🎛️ Number Generator"))
+    st.title(T("🎛️ Number Generator", "🎛️ Generator Liczb"))  
 
 with lang_col:
     bcol1, bcol2 = st.columns(2)
@@ -524,4 +524,5 @@ st.markdown(
     footer_pl if st.session_state.lang == "PL" else footer_en,
     unsafe_allow_html=True
 )
+
 
