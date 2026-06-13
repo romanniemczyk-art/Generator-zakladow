@@ -5,7 +5,7 @@ import os
 import math
 
 # ============================================================
-#  SYSTEM JĘZYKÓW & STYL 1
+#  SYSTEM JĘZYKÓW & STYL
 # ============================================================
 if "lang" not in st.session_state:
     st.session_state.lang = "PL"
@@ -89,7 +89,7 @@ user_numbers_raw = st.text_area(T("Wpisz swoje liczby", "Enter numbers"), help=T
 st.markdown("---")
 
 # ============================================================
-#  SILNIK — WERSJA RAM (JEDYNA ZMIANA)
+#  SILNIK — WERSJA ITERACYJNA (BEZPIECZNA DLA RAM)
 # ============================================================
 def build_system(v, k, t, max_pct, min_norma):
 
@@ -104,34 +104,37 @@ def build_system(v, k, t, max_pct, min_norma):
 
     total_to_cover = curr.execute("SELECT COUNT(*) FROM cele").fetchone()[0]
     covered_count = 0
-    wszystkie_zaklady = list(itertools.combinations(range(1, v + 1), k))
     wybrane_zaklady = []
+    
     progress_bar = st.progress(0)
     stat_placeholder = st.empty()
-    max_in_ticket = len(list(itertools.combinations(range(k), t)))
+    max_in_ticket = math.comb(k, t)
 
+    # Iteracja bezpośrednio po kombinacjach, bez tworzenia listy w RAM
     for norma in range(max_in_ticket, 0, -1):
         if norma < min_norma:
             st.warning(f"{T('Zatrzymano: Osiągnięto normę', 'Stopped: Reached norm')} {norma+1}. {T('Następna norma to', 'Next norm is')} {norma}.")
             break
-        i = 0
-        while i < len(wszystkie_zaklady):
-            ticket = wszystkie_zaklady[i]
+        
+        # Pętla po wszystkich możliwych zakładach (generator)
+        for ticket in itertools.combinations(range(1, v + 1), k):
             sub_combos = [",".join(map(str, c)) for c in itertools.combinations(ticket, t)]
             placeholders = ",".join(["?"] * len(sub_combos))
+            
             if curr.execute(f"SELECT COUNT(*) FROM cele WHERE kombinacja IN ({placeholders})", sub_combos).fetchone()[0] >= norma:
                 wybrane_zaklady.append(ticket)
                 curr.execute(f"DELETE FROM cele WHERE kombinacja IN ({placeholders})", sub_combos)
                 covered_count += curr.rowcount
-                conn.commit(); wszystkie_zaklady.pop(i)
+                conn.commit()
+                
                 procent = (covered_count / total_to_cover) * 100
                 progress_bar.progress(min(procent / 100.0, 1.0))
                 stat_placeholder.markdown(f'<div class="status-bar">Norma: <span class="status-value">{norma}</span> | Postęp: <span class="status-value">{procent:.2f}%</span> | Zostało: <span class="status-value">{total_to_cover - covered_count}</span> | Bilety: <span class="status-value">{len(wybrane_zaklady)}</span></div>', unsafe_allow_html=True)
+                
                 if procent >= max_pct:
                     st.warning(f"{T('Zatrzymano: Osiągnięto limit postępu', 'Stopped: Progress limit reached')} {max_pct:.2f}%.")
                     conn.close(); return wybrane_zaklady
-                continue
-            i += 1
+    
     conn.close(); return wybrane_zaklady
 
 # WYNIKI
