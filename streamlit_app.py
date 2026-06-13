@@ -5,7 +5,7 @@ import os
 import math
 
 # ============================================================
-#  SYSTEM JĘZYKÓW & STYL
+#  SYSTEM JĘZYKÓW & STYL 1
 # ============================================================
 if "lang" not in st.session_state:
     st.session_state.lang = "PL"
