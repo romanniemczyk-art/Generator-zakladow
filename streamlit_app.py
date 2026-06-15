@@ -3,6 +3,46 @@ import sqlite3
 import itertools
 import os
 import math
+import json
+
+# ============================================================
+#  BRAMKARZ (SECURITY GATE)
+# ============================================================
+def check_complexity(n, k, t):
+    try:
+        combinations = math.comb(n, k)
+        difficulty_factor = (t / k) * 10
+        return combinations * difficulty_factor
+    except:
+        return float('inf')
+
+# ============================================================
+#  BAZA PAMIĘCI (CACHE)
+# ============================================================
+def get_db_connection():
+    conn = sqlite3.connect("beta_systemy.db")
+    curr = conn.cursor()
+    curr.execute("CREATE TABLE IF NOT EXISTS cache (klucz TEXT PRIMARY KEY, wyniki TEXT)")
+    conn.commit()
+    return conn
+
+def pobierz_surowy_system(v, k, t, max_pct, min_norma):
+    klucz = f"{v}_{k}_{t}_{max_pct}_{min_norma}"
+    conn = get_db_connection()
+    curr = conn.cursor()
+    row = curr.execute("SELECT wyniki FROM cache WHERE klucz = ?", (klucz,)).fetchone()
+    conn.close()
+    if row:
+        return json.loads(row[0])
+    return None
+
+def zapisz_surowy_system(v, k, t, max_pct, min_norma, wyniki):
+    klucz = f"{v}_{k}_{t}_{max_pct}_{min_norma}"
+    conn = get_db_connection()
+    curr = conn.cursor()
+    curr.execute("INSERT OR REPLACE INTO cache VALUES (?, ?)", (klucz, json.dumps(wyniki)))
+    conn.commit()
+    conn.close()
 
 # ============================================================
 #  SYSTEM JĘZYKÓW & STYL
@@ -76,7 +116,7 @@ if st.session_state.get("tryb_auto"):
 # FILTRY
 st.subheader(T("🛡️ Filtry optymalizacji pokrycia", "🛡️ Coverage optimization filters"))
 c4, c5a, c5b = st.columns([3, 2, 1])
-with c4: limit_procent = st.slider(T("📊 Współczynnik pokrycia (%)", "📊 Coverage ratio (%)"), 0.0, 100.0, 1.0, step=0.5, help=T("Określa pożądany procentowy stopień pokrycia.", "Specifies the desired coverage ratio."))
+with c4: limit_procent = st.slider(T("📊 Współczynnik pokrycia (%)", "📊 Coverage ratio (%)"), 0.0, 100.0, 1.0, step=1.0, help=T("Określa pożądany procentowy stopień pokrycia.", "Specifies the desired coverage ratio."))
 with c5a: limit_norma = st.number_input(T("🛑 Minimalna wymagana Norma", "🛑 Minimum required Norm"), min_value=1, value=1, help=T("Minimalna liczba unikalnych układów gwarantowanych.", "Minimum number of unique guaranteed combinations."))
 with c5b:
     st.markdown("<br>", unsafe_allow_html=True)
@@ -92,11 +132,8 @@ st.markdown("---")
 #  SILNIK — WERSJA ITERACYJNA (BEZPIECZNA DLA RAM)
 # ============================================================
 def build_system(v, k, t, max_pct, min_norma):
-
-    # 🔥 BAZA TYLKO W RAM — ZERO PLIKÓW, ZERO ŚMIECI
     conn = sqlite3.connect(":memory:")
     curr = conn.cursor()
-
     curr.execute("CREATE TABLE cele (kombinacja TEXT PRIMARY KEY)")
     cele_gen = (",".join(map(str, c)) for c in itertools.combinations(range(1, v + 1), t))
     curr.executemany("INSERT INTO cele (kombinacja) VALUES (?)", ((c,) for c in cele_gen))
@@ -110,44 +147,55 @@ def build_system(v, k, t, max_pct, min_norma):
     stat_placeholder = st.empty()
     max_in_ticket = math.comb(k, t)
 
-    # Iteracja bezpośrednio po kombinacjach, bez tworzenia listy w RAM
     for norma in range(max_in_ticket, 0, -1):
         if norma < min_norma:
             st.warning(f"{T('Zatrzymano: Osiągnięto normę', 'Stopped: Reached norm')} {norma+1}. {T('Następna norma to', 'Next norm is')} {norma}.")
             break
-        
-        # Pętla po wszystkich możliwych zakładach (generator)
         for ticket in itertools.combinations(range(1, v + 1), k):
             sub_combos = [",".join(map(str, c)) for c in itertools.combinations(ticket, t)]
             placeholders = ",".join(["?"] * len(sub_combos))
-            
             if curr.execute(f"SELECT COUNT(*) FROM cele WHERE kombinacja IN ({placeholders})", sub_combos).fetchone()[0] >= norma:
                 wybrane_zaklady.append(ticket)
                 curr.execute(f"DELETE FROM cele WHERE kombinacja IN ({placeholders})", sub_combos)
                 covered_count += curr.rowcount
                 conn.commit()
-                
                 procent = (covered_count / total_to_cover) * 100
                 progress_bar.progress(min(procent / 100.0, 1.0))
-                stat_placeholder.markdown(f'<div class="status-bar">Norma: <span class="status-value">{norma}</span> | Postęp: <span class="status-value">{procent:.2f}%</span> | Zostało: <span class="status-value">{total_to_cover - covered_count}</span> | Bilety: <span class="status-value">{len(wybrane_zaklady)}</span></div>', unsafe_allow_html=True)
-                
+                stat_placeholder.text(f"Norma: {norma} | Postęp: {procent:.2f}% | Zostało: {total_to_cover - covered_count} | Bilety: {len(wybrane_zaklady)}")
                 if procent >= max_pct:
                     st.warning(f"{T('Zatrzymano: Osiągnięto limit postępu', 'Stopped: Progress limit reached')} {max_pct:.2f}%.")
                     conn.close(); return wybrane_zaklady
-    
     conn.close(); return wybrane_zaklady
 
 # WYNIKI
 if st.button(T("🚀 GENERUJ SYSTEM", "🚀 GENERATE SYSTEM")):
-    res = build_system(v_pula, k_zaklad, t_gwar, limit_procent, limit_norma)
-    if user_numbers_raw:
-        try:
-            u_list = [int(x) for x in user_numbers_raw.replace(",", " ").split()]
-            if len(u_list) >= v_pula:
-                mapping = {i+1: u_list[i] for i in range(v_pula)}
-                res = [tuple(sorted([mapping[n] for n in t])) for t in res]
-        except: st.error("Błąd mapowania!")
-    st.session_state.last_res = res
+    # 1. BRAMKARZ: Sprawdź złożoność
+    HARD_LIMIT = 50_000_000
+    score = check_complexity(v_pula, k_zaklad, t_gwar)
+    
+    if score > HARD_LIMIT:
+        st.error(f"❌ {T('System przekracza dopuszczalną złożoność obliczeniową (Score: ', 'System exceeds maximum computational complexity (Score: ')}{score:.0f}). {T('Zmniejsz pulę lub dostosuj parametry.', 'Please reduce the pool or adjust parameters.')}")
+    else:
+        # 2. Sprawdź bazę (Cache)
+        res = pobierz_surowy_system(v_pula, k_zaklad, t_gwar, limit_procent, limit_norma)
+        
+        if res is not None:
+            st.info(f"Znaleziono bilety: {len(res)}")
+        else:
+            # 3. Brak w bazie - miel silnik
+            res = build_system(v_pula, k_zaklad, t_gwar, limit_procent, limit_norma)
+            # 4. Zapisz surowy wynik do bazy
+            zapisz_surowy_system(v_pula, k_zaklad, t_gwar, limit_procent, limit_norma, res)
+        
+        # 5. Mapowanie liczb
+        if user_numbers_raw:
+            try:
+                u_list = [int(x) for x in user_numbers_raw.replace(",", " ").split()]
+                if len(u_list) >= v_pula:
+                    mapping = {i+1: u_list[i] for i in range(v_pula)}
+                    res = [tuple(sorted([mapping[n] for n in t])) for t in res]
+            except: st.error("Błąd mapowania!")
+        st.session_state.last_res = res
 
 if "last_res" in st.session_state:
     for i, t in enumerate(st.session_state.last_res, 1):
