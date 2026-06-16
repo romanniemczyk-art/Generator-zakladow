@@ -90,6 +90,32 @@ def kalkulator_norm(n, k, t):
         wyniki.append((trafienia, norma))
     return wyniki
 
+
+
+# WALIDACJA WEJŚCIA
+def validate_inputs(v, k, t):
+    if v > 80:
+        return T("Błąd: Pula (n) nie może przekraczać 80.", "Error: Pool (n) cannot exceed 80.")
+    if k > 10:
+        return T("Błąd: Zakład (k) nie może przekraczać 10 liczb.", "Error: Ticket (k) cannot exceed 10 numbers.")
+    if t > 9:
+        return T("Błąd: Gwarancja (t) nie może przekraczać 9.", "Error: Guarantee (t) cannot exceed 9.")
+    if t > k:
+        return T("Błąd: Gwarancja (t) nie może być większa niż liczba liczb w zakładzie (k).", "Error: Guarantee (t) cannot be greater than numbers per ticket (k).")
+    if k > v:
+        return T("Błąd: Liczba liczb w zakładzie (k) nie może być większa niż Pula (n).", "Error: Numbers per ticket (k) cannot be greater than Pool (n).")
+    
+    # --- ZDERZAK MATEMATYCZNY ---
+    if math.comb(v, t) > 25_000_000:
+        st.warning(T(f"⚠️ Uwaga: Zbyt duża złożoność obliczeniowa ({math.comb(v, t):,}). System mógłby zostać zablokowany. Proszę zmniejszyć pulę lub gwarancję.", 
+                     f"⚠️ Warning: Complexity too high ({math.comb(v, t):,}). System could be blocked. Please reduce pool or guarantee."))
+        return T("Przekroczono limit złożoności.", "Complexity limit exceeded.")
+    
+    return None
+
+
+
+
 # NAGŁÓWEK
 title_col, lang_col = st.columns([6, 1])
 with title_col: st.title(T("🏗️ Maria System - β-Universal PRO", "🏗️ Maria System - β-Universal PRO"))
@@ -99,9 +125,17 @@ with lang_col:
 st.markdown("---")
 st.header(T("⚙️ Konfiguracja systemu", "⚙️ System configuration"))
 c1, c2, c3 = st.columns(3)
-with c1: v_pula = st.number_input(T("🎲 Pula (n)", "🎲 Pool (n)"), min_value=1, value=1, help=T("Całkowita pula liczb dostępnych w systemie (n).", "Total range of numbers available in the pool (n)."))
-with c2: k_zaklad = st.number_input(T("🔢 Zakład (k)", "🔢 Ticket (k)"), min_value=1, value=1, help=T("Liczba liczb w jednym zakładzie (k).", "Number of balls per ticket (k)."))
-with c3: t_gwar = st.number_input(T("🎯 Gwarancja (t)", "🎯 Guarantee (t)"), min_value=1, value=1, help=T("Stopień gwarancji systemu (t) – trafienie minimum t w każdym kuponie.", "System guarantee degree (t) – ensure at least t matches per ticket."))
+with c1: 
+    v_pula = st.number_input(T("🎲 Pula (n) [max 80]", "🎲 Pool (n) [max 80]"), min_value=1, value=1, step=1, help=T("Całkowita pula liczb dostępnych w systemie (n).", "Total range of numbers available in the pool (n)."))
+with c2: 
+    k_zaklad = st.number_input(T("🔢 Zakład (k) [max 10]", "🔢 Ticket (k) [max 10]"), min_value=1, value=1, step=1, help=T("Liczba liczb w jednym zakładzie (k).", "Number of balls per ticket (k)."))
+with c3: 
+    t_gwar = st.number_input(T("🎯 Gwarancja (t) [max 9]", "🎯 Guarantee (t) [max 9]"), min_value=1, value=1, step=1, help=T("Stopień gwarancji systemu (t) – trafienie minimum t w każdym kuponie.", "System guarantee degree (t) – ensure at least t matches per ticket."))
+
+error_msg = validate_inputs(v_pula, k_zaklad, t_gwar)
+if error_msg:
+    st.error(error_msg)
+
 
 # TRYB AUTO
 if st.session_state.get("tryb_auto"):
@@ -120,7 +154,7 @@ with c4: limit_procent = st.slider(T("📊 Współczynnik pokrycia (%)", "📊 C
 with c5a: limit_norma = st.number_input(T("🛑 Minimalna wymagana Norma", "🛑 Minimum required Norm"), min_value=1, value=1, help=T("Minimalna liczba unikalnych układów gwarantowanych.", "Minimum number of unique guaranteed combinations."))
 with c5b:
     st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("AUTO", help=T("Otwórz kalkulator norm", "Open norm calculator")):
+    if st.button("NORM", help=T("Otwórz kalkulator norm", "Open norm calculator")):
         st.session_state.tryb_auto = True
         st.rerun()
 
@@ -156,6 +190,15 @@ def build_system(v, k, t, max_pct, min_norma):
             placeholders = ",".join(["?"] * len(sub_combos))
             if curr.execute(f"SELECT COUNT(*) FROM cele WHERE kombinacja IN ({placeholders})", sub_combos).fetchone()[0] >= norma:
                 wybrane_zaklady.append(ticket)
+
+		# --- BEZPIECZNIK ---
+                if len(wybrane_zaklady) >= 500:
+                    st.warning(T("⚠️ System osiągnął optymalny limit generowania (500 zakładów). Zgodnie z zasadami odpowiedzialnej gry, ograniczyliśmy liczbę kuponów, aby ograniczyć koszt systemu.", 
+                                 "⚠️ Optimal limit of 500 tickets reached. In accordance with responsible gaming principles, we have limited the number of tickets to manage system costs."))
+                    conn.close(); return wybrane_zaklady
+                # -------------------
+
+
                 curr.execute(f"DELETE FROM cele WHERE kombinacja IN ({placeholders})", sub_combos)
                 covered_count += curr.rowcount
                 conn.commit()
@@ -169,33 +212,36 @@ def build_system(v, k, t, max_pct, min_norma):
 
 # WYNIKI
 if st.button(T("🚀 GENERUJ SYSTEM", "🚀 GENERATE SYSTEM")):
-    # 1. BRAMKARZ: Sprawdź złożoność
-    HARD_LIMIT = 50_000_000
-    score = check_complexity(v_pula, k_zaklad, t_gwar)
-    
-    if score > HARD_LIMIT:
-        st.error(f"❌ {T('System przekracza dopuszczalną złożoność obliczeniową (Score: ', 'System exceeds maximum computational complexity (Score: ')}{score:.0f}). {T('Zmniejsz pulę lub dostosuj parametry.', 'Please reduce the pool or adjust parameters.')}")
+    if error_msg:
+        st.error(error_msg)
     else:
-        # 2. Sprawdź bazę (Cache)
-        res = pobierz_surowy_system(v_pula, k_zaklad, t_gwar, limit_procent, limit_norma)
+        # 1. BRAMKARZ: Sprawdź złożoność
+        HARD_LIMIT = 999_999_999_999_999_999
+        score = check_complexity(v_pula, k_zaklad, t_gwar)
         
-        if res is not None:
-            st.info(f"Znaleziono bilety: {len(res)}")
+        if score > HARD_LIMIT:
+            st.error(f"❌ {T('System przekracza dopuszczalną złożoność obliczeniową (Score: ', 'System exceeds maximum computational complexity (Score: ')}{score:.0f}). {T('Zmniejsz pulę lub dostosuj parametry.', 'Please reduce the pool or adjust parameters.')}")
         else:
-            # 3. Brak w bazie - miel silnik
-            res = build_system(v_pula, k_zaklad, t_gwar, limit_procent, limit_norma)
-            # 4. Zapisz surowy wynik do bazy
-            zapisz_surowy_system(v_pula, k_zaklad, t_gwar, limit_procent, limit_norma, res)
-        
-        # 5. Mapowanie liczb
-        if user_numbers_raw:
-            try:
-                u_list = [int(x) for x in user_numbers_raw.replace(",", " ").split()]
-                if len(u_list) >= v_pula:
-                    mapping = {i+1: u_list[i] for i in range(v_pula)}
-                    res = [tuple(sorted([mapping[n] for n in t])) for t in res]
-            except: st.error("Błąd mapowania!")
-        st.session_state.last_res = res
+            # 2. Sprawdź bazę (Cache)
+            res = pobierz_surowy_system(v_pula, k_zaklad, t_gwar, limit_procent, limit_norma)
+            
+            if res is not None:
+                st.info(f"Znaleziono bilety: {len(res)}")
+            else:
+                # 3. Brak w bazie - miel silnik
+                res = build_system(v_pula, k_zaklad, t_gwar, limit_procent, limit_norma)
+                # 4. Zapisz surowy wynik do bazy
+                zapisz_surowy_system(v_pula, k_zaklad, t_gwar, limit_procent, limit_norma, res)
+            
+            # 5. Mapowanie liczb
+            if user_numbers_raw:
+                try:
+                    u_list = [int(x) for x in user_numbers_raw.replace(",", " ").split()]
+                    if len(u_list) >= v_pula:
+                        mapping = {i+1: u_list[i] for i in range(v_pula)}
+                        res = [tuple(sorted([mapping[n] for n in t])) for t in res]
+                except: st.error("Błąd mapowania!")
+            st.session_state.last_res = res
 
 if "last_res" in st.session_state:
     for i, t in enumerate(st.session_state.last_res, 1):
