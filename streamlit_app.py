@@ -53,26 +53,42 @@ if "lang" not in st.session_state:
 def T(pl, en):
     return pl if st.session_state.lang == "PL" else en
 
-st.set_page_config(page_title="Maria System - α-TCE PRO", layout="centered")
+st.set_page_config(page_title="Maria System - α- PRO", layout="centered")
 
 # TWÓJ LOOK + POPRAWKI BŁĘKITU
 st.markdown("""
+
+
 <style>
     :root { color-scheme: dark; }
     body { background-color: #0E1117; }
     h1, h2, h3 { color: #4CAF50 !important; }
     
-    /* Pola input - tło i kolor cyfr */
+    /* Pola input - tło, powrót do pierwotnego obramowania */
     .stNumberInput div[data-baseweb="base-input"], 
     .stMultiSelect div[data-baseweb="select"] {
         background-color: #262730 !important;
-        border: 1px solid #4CAF50 !important;
+        border: none !important;
+        border-bottom: 2px solid #4CAF50 !important;
+        border-radius: 0px !important;
     }
     
+    /* Cyfry niebieskie, większa czcionka */
     .stNumberInput input, 
     .stMultiSelect div[data-baseweb="select"] span {
-        color: #00ffcc !important;
+        color: #00a2ff !important;
         font-weight: bold !important;
+        font-size: 20px !important;
+    }
+
+    /* Niebieska linia separująca między cyfrą a przyciskami */
+    .stNumberInput div[role="group"]::after {
+        content: "";
+        display: block;
+        width: 100%;
+        height: 2px;
+        background-color: #00a2ff !important;
+        margin-top: 5px;
     }
 
     .stButton>button { 
@@ -81,6 +97,7 @@ st.markdown("""
         border-radius: 8px !important; 
         width: 100%; height: 50px; font-weight: bold; border: none;
     }
+    
     hr { border: none; border-top: 2px solid #00ffcc !important; margin: 20px 0; }
     
     .ticket-line { 
@@ -109,7 +126,7 @@ st.markdown("""
 
 t_col, l_col = st.columns([5, 1])
 with t_col:
-    st.title(T("🏗️ Maria System - α-TCE PRO", "🏗️ Maria System - α-TCE PRO"))
+    st.title(T("🏗️ Maria System - α- PRO", "🏗️ Maria System - α- PRO"))
 with l_col:
     if st.button("PL/EN"):
         st.session_state.lang = "EN" if st.session_state.lang == "PL" else "PL"
