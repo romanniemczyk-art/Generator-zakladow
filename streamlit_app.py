@@ -3,6 +3,7 @@ import itertools
 import sqlite3
 import json
 import math
+import gc
 
 # ============================================================
 #  BRAMKARZ (SECURITY GATE)
@@ -22,6 +23,26 @@ def get_db_connection():
     conn = sqlite3.connect('alfa_systemy.db')
     conn.execute("CREATE TABLE IF NOT EXISTS cache (klucz TEXT PRIMARY KEY, wyniki TEXT)")
     return conn
+
+def pobierz_surowy_system(v, k, t):
+    klucz = f"{v}_{k}_{t}"
+    conn = get_db_connection()
+    row = conn.execute("SELECT wyniki FROM cache WHERE klucz = ?", (klucz,)).fetchone()
+    conn.close()
+    if row:
+        dane = json.loads(row[0])
+        if isinstance(dane, dict):
+            return dane.get("wyniki"), dane.get("status", "full")
+        return dane, "full"
+    return None, None
+
+def zapisz_surowy_system(v, k, t, wyniki, status):
+    klucz = f"{v}_{k}_{t}"
+    conn = get_db_connection()
+    dane_do_zapisu = {"wyniki": wyniki, "status": status}
+    conn.execute("INSERT OR REPLACE INTO cache VALUES (?, ?)", (klucz, json.dumps(dane_do_zapisu)))
+    conn.commit()
+    conn.close()
 
 # ============================================================
 # SYSTEM JĘZYKÓW & KONFIGURACJA
@@ -79,7 +100,10 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# ------------------------------------------------
 # NAGŁÓWEK
+# ------------------------------------------------
+
 t_col, l_col = st.columns([5, 1])
 with t_col:
     st.title(T("🏗️ Maria System - α-TCE PRO", "🏗️ Maria System - α-TCE PRO"))
@@ -90,7 +114,10 @@ with l_col:
 
 st.markdown("---")
 
+# ----------------------------------------------------
 # PARAMETRY
+# -----------------------------------------------------
+
 st.header(T("⚙️ Konfiguracja systemu", "⚙️ System configuration"))
 c1, c2, c3 = st.columns(3)
 with c1:
@@ -103,7 +130,10 @@ with c3:
     t_gwar = st.number_input(T("🎯 Gwarancja (t)", "🎯 Guarantee (t)"), min_value=1, value=1,
                              help=T("Poziom gwarancji systemu (t) – trafienie minimum t w każdym zakładzie.", "Guarantee level (t) – ensure at least t match in each ticket."))
 
+# ---------------------------------------------------
 # WALIDACJA WEJŚCIA
+# ----------------------------------------------------
+
 def validate_inputs(v, k, t):
     if t > k:
         return T("Błąd: Gwarancja (t) nie może być większa niż liczba liczb w zakładzie (k).", "Error: Guarantee (t) cannot be greater than numbers per ticket (k).")
@@ -134,7 +164,10 @@ user_list = st.multiselect(
 
 st.markdown("---")
 
+# ---------------------------------------------------
 # SILNIK MARIA v15
+# ----------------------------------------------------
+
 def build_final_gear_system(v, k, t):
     wybrane_zaklady = []
     zapisane_sety = []
@@ -180,19 +213,20 @@ def build_final_gear_system(v, k, t):
             pelny_kupon = tuple(sorted(list(trzon) + znaleziony_ogon))
             wybrane_zaklady.append(pelny_kupon)
 
-	    # --- BEZPIECZNIK ---
+            # --- BEZPIECZNIK ---
             if len(wybrane_zaklady) >= 500:
-                st.warning(T("⚠️ System osiągnął optymalny limit zakładów. Zgodnie z zasadami odpowiedzialnej gry, ograniczyliśmy liczbę kuponów, aby ograniczyć koszt systemu.", 
-                             "⚠️ Optimal limit of tickets reached. In accordance with responsible gaming principles, we have limited the number of tickets to manage system costs."))
-                return wybrane_zaklady
+                return wybrane_zaklady, "ograniczony"
             # -------------------
 
             zapisane_sety.append(set(pelny_kupon))
             counter_placeholder.markdown(f"**{T('Znaleziono zakładów', 'Tickets found')}: {len(wybrane_zaklady)}**")
             
-    return wybrane_zaklady
+    return wybrane_zaklady, "full"
 
+# ---------------------------------------------------
 # LOGIKA URUCHOMIENIA
+# ---------------------------------------------------
+
 if st.button(T("🚀 GENERUJ SYSTEM", "🚀 GENERATE SYSTEM")):
     if error_msg:
         st.error(error_msg)
@@ -204,18 +238,13 @@ if st.button(T("🚀 GENERUJ SYSTEM", "🚀 GENERATE SYSTEM")):
         if score > HARD_LIMIT:
             st.error(f"❌ {T('System przekracza dopuszczalną złożoność obliczeniową (Score: ', 'System exceeds maximum computational complexity (Score: ')}{score:.0f}).")
         else:
-            # BAZA DANYCH
-            klucz = f"{v_pula}_{k_zaklad}_{t_gwar}"
-            conn = get_db_connection()
-            row = conn.execute("SELECT wyniki FROM cache WHERE klucz = ?", (klucz,)).fetchone()
+            # BAZA DANYCH - ODCZYT
+            res_base, status = pobierz_surowy_system(v_pula, k_zaklad, t_gwar)
             
-            if row:
-                res_base = json.loads(row[0])
-            else:
-                res_base = build_final_gear_system(v_pula, k_zaklad, t_gwar)
-                conn.execute("INSERT OR REPLACE INTO cache VALUES (?, ?)", (klucz, json.dumps(res_base)))
-                conn.commit()
-            conn.close()
+            if res_base is None:
+                # GENEROWANIE - ZAPIS
+                res_base, status = build_final_gear_system(v_pula, k_zaklad, t_gwar)
+                zapisz_surowy_system(v_pula, k_zaklad, t_gwar, res_base, status)
 
             # MAPOWANIE LICZB
             if len(user_list) == v_pula:
@@ -223,28 +252,38 @@ if st.button(T("🚀 GENERUJ SYSTEM", "🚀 GENERATE SYSTEM")):
                 res = [tuple(sorted([mapping[n] for n in b])) for b in res_base]
             else:
                 res = res_base
-                
-            st.session_state.last_res = res
+            
+            # WYŚWIETLANIE WYNIKÓW
+            st.success(f"{T('Gotowe!', 'Done!')} {len(res)} {T('zakładów', 'tickets')}.")
+            
+            # OSTRZEŻENIE - wyświetla się tylko jeśli status jest 'ograniczony'
+            if status == "ograniczony":
+                st.warning(T("⚠️ System osiągnął optymalny limit zakładów. Zgodnie z zasadami odpowiedzialnej gry, ograniczyliśmy liczbę kuponów, aby ograniczyć koszt systemu.", 
+                             "⚠️ Optimal limit of tickets reached. In accordance with responsible gaming principles, we have limited the number of tickets to manage system costs."))
+            
+            txt_data = "\n".join(" ".join(f"{x:02d}" for x in bilet) for bilet in res)
+            
+            for i, bilet in enumerate(res, 1):
+                formatted = " ".join(f"{x:02d}" for x in bilet)
+                st.markdown(f'<div class="ticket-line"><span class="ticket-number">{i:03d}:</span> {formatted}</div>', unsafe_allow_html=True)
 
-if "last_res" in st.session_state:
-    res_to_show = st.session_state.last_res
-    st.success(f"{T('Gotowe!', 'Done!')} {len(res_to_show)} {T('zakładów', 'tickets')}.")
-    
-    txt_data = "\n".join(" ".join(f"{x:02d}" for x in bilet) for bilet in res_to_show)
-    
-    for i, bilet in enumerate(res_to_show, 1):
-        formatted = " ".join(f"{x:02d}" for x in bilet)
-        st.markdown(f'<div class="ticket-line"><span class="ticket-number">{i:03d}:</span> {formatted}</div>', unsafe_allow_html=True)
+            st.markdown("---")
+            st.download_button(
+                label=T("📥 Pobierz plik TXT", "📥 Download TXT file"),
+                data=txt_data,
+                file_name="maria_tce_system.txt",
+                mime="text/plain"
+            )
+            
+            # CZYŚCIMY PAMIĘĆ RAM
+            del res
+            del res_base
+            del txt_data
+            gc.collect()
 
-    st.markdown("---")
-    st.download_button(
-        label=T("📥 Pobierz plik TXT", "📥 Download TXT file"),
-        data=txt_data,
-        file_name="maria_tce_system.txt",
-        mime="text/plain"
-    )
-
+# -----------------------------------------------------
 # NOWOCZESNE OSTRZEŻENIE
+# ------------------------------------------------------
 st.markdown(f"""
 <div style="
     background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
