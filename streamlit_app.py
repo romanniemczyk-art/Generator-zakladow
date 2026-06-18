@@ -80,7 +80,7 @@ st.markdown("""
     
     .footer { text-align: center; padding: 30px; color: #00ffcc; font-size: 13px; border-top: 1px solid #333; margin-top: 50px; opacity: 0.8; }
     
-    .stNumberInput div div input { color: #00ffcc !important; font-weight: bold !important; }
+    .stNumberInput div div input { color: #ffffff !important; font-weight: bold !important; font-size: 20px !important; }
 
     div[data-baseweb="tag"] {
         background-color: #007bff !important;
