@@ -62,6 +62,19 @@ st.markdown("""
     body { background-color: #0E1117; }
     h1, h2, h3 { color: #4CAF50 !important; }
     
+    /* Pola input - tło i kolor cyfr */
+    .stNumberInput div[data-baseweb="base-input"], 
+    .stMultiSelect div[data-baseweb="select"] {
+        background-color: #262730 !important;
+        border: 1px solid #4CAF50 !important;
+    }
+    
+    .stNumberInput input, 
+    .stMultiSelect div[data-baseweb="select"] span {
+        color: #00ffcc !important;
+        font-weight: bold !important;
+    }
+
     .stButton>button { 
         background-color: #4CAF50 !important; 
         color: white !important; 
@@ -78,15 +91,6 @@ st.markdown("""
     }
     .ticket-number { color: #4CAF50; font-weight: bold; margin-right: 20px; font-size: 16px; }
     
-    .footer { text-align: center; padding: 30px; color: #00ffcc; font-size: 13px; border-top: 1px solid #333; margin-top: 50px; opacity: 0.8; }
-    
-    .stNumberInput div div input { color: #ffffff !important; font-weight: bold !important; font-size: 20px !important; }
-
-    div[data-baseweb="tag"] {
-        background-color: #007bff !important;
-        border: none !important;
-    }
-    
     .live-counter {
         color: #00a2ff;
         font-weight: bold;
@@ -94,11 +98,10 @@ st.markdown("""
         margin-bottom: 2px;
     }
     .live-warning { color: #ff9900; }
-
-    /* Kolor tooltipów */
     .stTooltipIcon svg { fill: #ff9800 !important; color: #ff9800 !important; }
 </style>
 """, unsafe_allow_html=True)
+
 
 # ------------------------------------------------
 # NAGŁÓWEK
@@ -141,8 +144,15 @@ def validate_inputs(v, k, t):
         return T("Błąd: Liczba liczb w zakładzie (k) nie może być większa niż Pula (n).", "Error: Numbers per ticket (k) cannot be greater than Pool (n).")
     return None
 
+# Natychmiastowa walidacja parametrów
 error_msg = validate_inputs(v_pula, k_zaklad, t_gwar)
 
+if error_msg:
+    st.error(error_msg)
+    # Zatrzymanie renderowania reszty strony, jeśli parametry są błędne
+    st.stop()
+
+# Jeśli walidacja przeszła pomyślnie, kontynuujemy renderowanie
 st.header(T("✍️ Twoje liczby", "✍️ Your numbers"))
 
 if "user_multiselect" in st.session_state:
@@ -163,6 +173,7 @@ user_list = st.multiselect(
 )
 
 st.markdown("---")
+
 
 # ---------------------------------------------------
 # SILNIK MARIA v15
