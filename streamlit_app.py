@@ -53,7 +53,7 @@ if "lang" not in st.session_state:
 def T(pl, en):
     return pl if st.session_state.lang == "PL" else en
 
-st.set_page_config(page_title="Maria System - α- PRO", layout="centered")
+st.set_page_config(page_title="Maria System- α- PRO", layout="centered")
 
 # TWÓJ LOOK + POPRAWKI BŁĘKITU
 st.markdown("""
@@ -126,7 +126,7 @@ st.markdown("""
 
 t_col, l_col = st.columns([5, 1])
 with t_col:
-    st.title(T("🏗️ Maria System - α- PRO", "🏗️ Maria System - α- PRO"))
+    st.title(T("Maria System- α- PRO", "Maria System- α- PRO"))
 with l_col:
     if st.button("PL/EN"):
         st.session_state.lang = "EN" if st.session_state.lang == "PL" else "PL"
