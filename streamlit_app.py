@@ -57,14 +57,11 @@ st.set_page_config(page_title="Maria System α- PRO", layout="centered")
 
 # TWÓJ LOOK + POPRAWKI BŁĘKITU
 st.markdown("""
-
-
 <style>
     :root { color-scheme: dark; }
     body { background-color: #0E1117; }
     h1, h2, h3 { color: #4CAF50 !important; }
     
-    /* Pola input - tło, powrót do pierwotnego obramowania */
     .stNumberInput div[data-baseweb="base-input"], 
     .stMultiSelect div[data-baseweb="select"] {
         background-color: #262730 !important;
@@ -73,7 +70,6 @@ st.markdown("""
         border-radius: 0px !important;
     }
     
-    /* Cyfry niebieskie, większa czcionka */
     .stNumberInput input, 
     .stMultiSelect div[data-baseweb="select"] span {
         color: #00a2ff !important;
@@ -81,7 +77,6 @@ st.markdown("""
         font-size: 20px !important;
     }
 
-    /* Niebieska linia separująca między cyfrą a przyciskami */
     .stNumberInput div[role="group"]::after {
         content: "";
         display: block;
@@ -119,11 +114,9 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-
 # ------------------------------------------------
 # NAGŁÓWEK
 # ------------------------------------------------
-
 t_col, l_col = st.columns([5, 1])
 with t_col:
     st.title(T("Maria System α- PRO", "Maria System α- PRO"))
@@ -137,7 +130,6 @@ st.markdown("---")
 # ----------------------------------------------------
 # PARAMETRY
 # -----------------------------------------------------
-
 st.header(T("⚙️ Konfiguracja systemu", "⚙️ System configuration"))
 c1, c2, c3 = st.columns(3)
 with c1:
@@ -153,7 +145,6 @@ with c3:
 # ---------------------------------------------------
 # WALIDACJA WEJŚCIA
 # ----------------------------------------------------
-
 def validate_inputs(v, k, t):
     if t > k:
         return T("Błąd: Gwarancja (t) nie może być większa niż liczba liczb w zakładzie (k).", "Error: Guarantee (t) cannot be greater than numbers per ticket (k).")
@@ -161,45 +152,25 @@ def validate_inputs(v, k, t):
         return T("Błąd: Liczba liczb w zakładzie (k) nie może być większa niż Pula (n).", "Error: Numbers per ticket (k) cannot be greater than Pool (n).")
     return None
 
-# Natychmiastowa walidacja parametrów
 error_msg = validate_inputs(v_pula, k_zaklad, t_gwar)
 
 if error_msg:
     st.error(error_msg)
-    # Zatrzymanie renderowania reszty strony, jeśli parametry są błędne
     st.stop()
 
-# Jeśli walidacja przeszła pomyślnie, kontynuujemy renderowanie
+# ---------------------------------------------------
+# TWOJE LICZBY
+# ---------------------------------------------------
 st.header(T("✍️ Twoje liczby", "✍️ Your numbers"))
-
-if "user_multiselect" in st.session_state:
-    sel_count = len(st.session_state.user_multiselect)
-    if sel_count > 0:
-        if sel_count < v_pula:
-            st.markdown(f'<div class="live-counter live-warning">⚠️ {T("Wybrano", "Selected")}: {sel_count} / {v_pula} ({T("Brakuje", "Missing")}: {v_pula - sel_count})</div>', unsafe_allow_html=True)
-        else:
-            st.markdown(f'<div class="live-counter">💎 {T("Komplet wybrany", "Full set selected")}: {sel_count} / {v_pula}</div>', unsafe_allow_html=True)
-
-user_list = st.multiselect(
-    T("Wybierz liczby (puste = gra 1-n):", "Select numbers (empty = 1-n):"),
-    options=list(range(1, 81)),
-    max_selections=v_pula,
-    key="user_multiselect",
-    label_visibility="collapsed",
-    help=T("Wybierz własne liczby. Pozostaw puste, aby system operował na standardowym zakresie 1-n.", "Select your own numbers. Leave empty to use standard 1-n range.")
-)
-
+user_numbers_raw = st.text_area(T("Wpisz swoje liczby – po przecinku", "Enter numbers – separated by a comma"), help=T("Wpisz własny zestaw liczb. Pozostaw puste, aby system operował na w zakresie 1-n.", "Select your own numbers. Leave empty to use standard 1-n range."))
 st.markdown("---")
-
 
 # ---------------------------------------------------
 # SILNIK MARIA v15
 # ----------------------------------------------------
-
 def build_final_gear_system(v, k, t):
     wybrane_zaklady = []
     zapisane_sety = []
-    
     counter_placeholder = st.empty()
     generator_trzonow = itertools.combinations(range(1, v + 1), t)
 
@@ -241,10 +212,8 @@ def build_final_gear_system(v, k, t):
             pelny_kupon = tuple(sorted(list(trzon) + znaleziony_ogon))
             wybrane_zaklady.append(pelny_kupon)
 
-            # --- BEZPIECZNIK ---
             if len(wybrane_zaklady) >= 500:
                 return wybrane_zaklady, "ograniczony"
-            # -------------------
 
             zapisane_sety.append(set(pelny_kupon))
             counter_placeholder.markdown(f"**{T('Znaleziono zakładów', 'Tickets found')}: {len(wybrane_zaklady)}**")
@@ -254,13 +223,28 @@ def build_final_gear_system(v, k, t):
 # ---------------------------------------------------
 # LOGIKA URUCHOMIENIA
 # ---------------------------------------------------
-
 if st.button(T("🚀 GENERUJ SYSTEM", "🚀 GENERATE SYSTEM")):
-    if error_msg:
-        st.error(error_msg)
-    else:
+    valid_data = True
+    user_numbers = []
+    
+    if user_numbers_raw:
+        try:
+            u_list = [int(x) for x in user_numbers_raw.replace(",", " ").split()]
+            if len(u_list) != v_pula:
+                st.error(f"{T('Błąd: wpisałeś', 'Error: you entered')} {len(u_list)} {T('liczb, a wymagane jest', 'numbers, but required is')} {v_pula}.")
+                valid_data = False
+            elif len(set(u_list)) != len(u_list):
+                st.error(T("Błąd: Wpisane liczby nie mogą się powtarzać!", "Error: Entered numbers cannot be duplicated!"))
+                valid_data = False
+            else:
+                user_numbers = u_list
+        except:
+            st.error(T("Wpisz tylko liczby całkowite!", "Please enter only integers!"))
+            valid_data = False
+
+    if valid_data:
         # BRAMKARZ
-        HARD_LIMIT = 10_000_000_000
+        HARD_LIMIT = 10_000_000_000_000_000
         score = check_complexity(v_pula, k_zaklad, t_gwar)
         
         if score > HARD_LIMIT:
@@ -275,8 +259,8 @@ if st.button(T("🚀 GENERUJ SYSTEM", "🚀 GENERATE SYSTEM")):
                 zapisz_surowy_system(v_pula, k_zaklad, t_gwar, res_base, status)
 
             # MAPOWANIE LICZB
-            if len(user_list) == v_pula:
-                mapping = {i+1: user_list[i] for i in range(v_pula)}
+            if user_numbers:
+                mapping = {i+1: user_numbers[i] for i in range(v_pula)}
                 res = [tuple(sorted([mapping[n] for n in b])) for b in res_base]
             else:
                 res = res_base
@@ -284,10 +268,9 @@ if st.button(T("🚀 GENERUJ SYSTEM", "🚀 GENERATE SYSTEM")):
             # WYŚWIETLANIE WYNIKÓW
             st.success(f"{T('Gotowe!', 'Done!')} {len(res)} {T('zakładów', 'tickets')}.")
             
-            # OSTRZEŻENIE - wyświetla się tylko jeśli status jest 'ograniczony'
             if status == "ograniczony":
-                st.warning(T("⚠️ System osiągnął optymalny limit zakładów. Zgodnie z zasadami odpowiedzialnej gry, ograniczyliśmy liczbę kuponów, aby ograniczyć koszt systemu.", 
-                             "⚠️ Optimal limit of tickets reached. In accordance with responsible gaming principles, we have limited the number of tickets to manage system costs."))
+                st.warning(T("⚠️ System osiągnął optymalny limit zakładów (max. 500). Zgodnie z zasadami odpowiedzialnej gry, ograniczyliśmy liczbę kuponów, aby ograniczyć koszt systemu.", 
+                            "⚠️ Optimal limit of tickets reached (max. 500). In accordance with responsible gaming principles, we have limited the number of tickets to manage system costs."))
             
             txt_data = "\n".join(" ".join(f"{x:02d}" for x in bilet) for bilet in res)
             
